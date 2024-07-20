@@ -2,15 +2,16 @@ package com.jdev.projects.service;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.jdev.projects.exceptions.BadRequestException;
+import com.jdev.projects.exceptions.ProjectNotFoundException;
 import com.jdev.projects.model.Project;
 import com.jdev.projects.respository.ProjectsRepository;
 
@@ -28,25 +29,43 @@ public class ProjectsService {
         return projects;
     }
 
-    public Project getProjectById(int id) {
-        try {
-            Optional<Project> project = this.projectsRepository.findById(id);
-            return project.get();
-        } catch (Exception e) {
-            return null;
-        }
+    public Project getProjectById(int id) throws ProjectNotFoundException {
+        return this.projectsRepository.findById(id)
+                .orElseThrow(() -> new ProjectNotFoundException("Project with id: " + id + " not found"));
+
     }
 
-    public Project addProject(String name, String description, int budget, MultipartFile image) throws IOException {
+    public Project addProject(String name, String description, int budget, MultipartFile image)
+            throws IOException, BadRequestException {
+
+        if (name == null || name.trim().isEmpty()) {
+            throw new BadRequestException("Name is required.");
+        }
+
+        if (description == null || description.trim().isEmpty()) {
+            throw new BadRequestException("Description is required.");
+        }
+
+        if (budget <= 0) {
+            throw new BadRequestException("Budget must be a positive number.");
+        }
+
+        if (image == null || image.isEmpty()) {
+            throw new BadRequestException("Image is required.");
+        }
 
         Project newProject = new Project();
         newProject.setName(name);
         newProject.setBudget(budget);
         newProject.setDescription(description);
-        
+
         if (image != null && !image.isEmpty()) {
-            String filePath = this.saveImage(image);
-            newProject.setImageUrl(filePath.toString());
+            try {
+                String filePath = this.saveImage(image);
+                newProject.setImageUrl(filePath.toString());
+            } catch (IOException e) {
+                throw new IOException("Error saving image.");
+            }
         }
         return this.projectsRepository.save(newProject);
 
@@ -56,30 +75,32 @@ public class ProjectsService {
         try {
             this.projectsRepository.deleteById(id);
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            throw new ProjectNotFoundException("Project with id: " + id + " not found");
         }
 
         return "Project with id: " + id + " has been deleted";
     }
 
-    public Project editProjectById(int id, String name, String description, int budget, MultipartFile image, String imageUrl)
+    public Project editProjectById(int id, String name, String description, int budget, MultipartFile image,
+            String imageUrl)
             throws IOException {
 
-        Optional<Project> optionalProject = projectsRepository.findById(id);
-        if (!optionalProject.isPresent()) {
-            throw new RuntimeException("Project not found");
-        }
+        Project project = projectsRepository.findById(id)
+                .orElseThrow(() -> new ProjectNotFoundException("Project with id: " + id + " not found"));
 
-        Project project = optionalProject.get();
         project.setName(name);
         project.setDescription(description);
         project.setBudget(budget);
 
-        if (image != null && !image.isEmpty()) {
-            String imagePath = this.saveImage(image);
-            project.setImageUrl(imagePath);
-        } else if (imageUrl != null && !imageUrl.isEmpty()) {
-            project.setImageUrl(imageUrl);
+        try {
+            if (image != null && !image.isEmpty()) {
+                String imagePath = this.saveImage(image);
+                project.setImageUrl(imagePath);
+            } else if (imageUrl != null && !imageUrl.isEmpty()) {
+                project.setImageUrl(imageUrl);
+            }
+        } catch (IOException e) {
+            throw new IOException("Error saving image/imageUrl.");
         }
 
         return projectsRepository.save(project);
@@ -94,6 +115,4 @@ public class ProjectsService {
         return filePath.toString();
     }
 
-   
 }
-

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.jdev.projects.Dtos.ProjectDto;
+import com.jdev.projects.exceptions.ProjectNotFoundException;
 import com.jdev.projects.model.Project;
 import com.jdev.projects.service.ProjectsService;
 
@@ -34,7 +35,7 @@ public class ProjectsController {
         return new ResponseEntity<>(projects, HttpStatus.OK);
     }
 
-    @PostMapping("/projects/add-project")
+    @PostMapping("/projects")
     public ResponseEntity<Project> addNewProject(
             @RequestParam String name,
             @RequestParam String description,
@@ -63,7 +64,7 @@ public class ProjectsController {
       
             return new ResponseEntity<>(projectDto, HttpStatus.OK);
         } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            throw new ProjectNotFoundException("Project with id " + id + " not found.");
         }
     }
 
@@ -81,16 +82,12 @@ public class ProjectsController {
         @RequestParam int budget,
         @RequestParam(value = "image" , required = false) MultipartFile image,
         @RequestParam(required = false) String imageUrl
-    ) {
+    ) throws IOException, ProjectNotFoundException {
         
-        try {
+
             Project updatedProjec = this.projectsService.editProjectById(id, name, description, budget, image, imageUrl);
             return new ResponseEntity<>(updatedProjec, HttpStatus.ACCEPTED);
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
-        }
-
-        return new ResponseEntity<>(HttpStatus.NOT_MODIFIED);
+      
     }
 
 }
