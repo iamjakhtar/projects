@@ -7,6 +7,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,6 +24,8 @@ public class ProjectsService {
 
     private final ProjectsRepository projectsRepository;
     private final String uploadDir = "uploads/";
+    @Value("${app.base-url}")
+    private String baseUrl;
 
     public List<Project> getAllProjects() {
         List<Project> projects = this.projectsRepository.findAll();
@@ -30,9 +33,10 @@ public class ProjectsService {
     }
 
     public Project getProjectById(int id) throws ProjectNotFoundException {
-        return this.projectsRepository.findById(id)
+        Project project = this.projectsRepository.findById(id)
                 .orElseThrow(() -> new ProjectNotFoundException("Project with id: " + id + " not found"));
 
+        return transformImageUrl(project);
     }
 
     public Project addProject(String name, String description, int budget, MultipartFile image)
@@ -67,18 +71,18 @@ public class ProjectsService {
                 throw new IOException("Error saving image.");
             }
         }
-        return this.projectsRepository.save(newProject);
+        return this.projectsRepository.save(transformImageUrl(newProject));
 
     }
 
     public String deleteProject(int id) {
-        try {
-            this.projectsRepository.deleteById(id);
-        } catch (Exception e) {
+        if (!this.projectsRepository.existsById(id)) {
             throw new ProjectNotFoundException("Project with id: " + id + " not found");
         }
 
+        this.projectsRepository.deleteById(id);
         return "Project with id: " + id + " has been deleted";
+
     }
 
     public Project editProjectById(int id, String name, String description, int budget, MultipartFile image,
@@ -112,7 +116,16 @@ public class ProjectsService {
         Path filePath = Paths.get(uploadDir + fileName);
         Files.createDirectories(filePath.getParent());
         Files.copy(image.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-        return filePath.toString();
+        return filePath.toString().replace("\\", "/");
+    }
+
+    private Project transformImageUrl(Project project) {
+        String imageUrl = project.getImageUrl();
+        if (imageUrl != null && !imageUrl.startsWith("http")) {
+            String fullImageUrl = baseUrl + "/" + project.getImageUrl();
+            project.setImageUrl(fullImageUrl);
+        }
+        return project;
     }
 
 }
