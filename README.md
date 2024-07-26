@@ -140,8 +140,6 @@ This is the main entry point of the Spring Boot application.
 
 ## Future Features
 
-- **Custom Exception Handling**:
-  - Implement a global exception handler using `@ControllerAdvice` to provide more meaningful error messages and status codes.
 
 - **Security**:
   - Integrate Spring Security to handle authentication and authorization.
